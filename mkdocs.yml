@@ -1,0 +1,75 @@
+site_name:  Homelab Documentation
+site_description: Learn self-hosting with Arch Linux, Android Termux, Tailscale, and Zero Trust
+site_author: terrich
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/logo.png
+
+
+  # 🌙 Dark mode first (recommended)
+  palette:
+    - scheme: slate
+      primary: blue
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+    - scheme: default
+      primary: blue
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+
+  features:
+    - navigation.top
+    - navigation.sections
+    - content.code.copy
+    - search.highlight
+    - search.suggest
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight:
+      use_pygments: true
+      pygments_style: material
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+
+  - Servers:
+      - Lenovo Server: servers/lenovo.md
+      - Android Termux Server: servers/android-termux.md
+      - Termux Optimizations: servers/termux-optimizations.md
+
+  - Services:
+      - Immich: services/immich.md
+      - Jellyfin: services/jellyfin.md
+      - Plex: services/plex.md
+      - Nginx Proxy Manager: services/nginx-proxy-manager.md
+      - Ad Blocker: services/adblocker.md
+      - Sophia Radar: services/sophia-radar.md
+
+  - Networking:
+      - Networking Basics: networking/basics.md
+      - Network Diagrams: networking/diagrams.md
+      - Tailscale Only: networking/tailscale-only.md
+      - Reverse Proxy: networking/reverse-proxy.md
+      - Zero Trust: networking/zero-trust.md
+
+  - Arch Linux:
+      - Manual Installation: arch-linux/manual-install.md
+
+  - Maintenance:
+      - Health Checks: maintenance/health-checks.md
+      - Disaster Recovery: maintenance/disaster-recovery.md
