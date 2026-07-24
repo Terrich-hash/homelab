@@ -1,64 +1,100 @@
-site_name:  Homelab Documentation
-site_description: Learn self-hosting with Arch Linux, Android Termux, Tailscale, and Zero Trust
+site_name: Homelab Docs
+site_description: Centralized documentation for my Homelab, OS setup, and infra design
 site_author: terrich
+site_url: https://terrich-hash.github.io/homelab/
+
+repo_url: https://github.com/Terrich-hash/homelab
+repo_name: Terrich-hash/homelab
 
 theme:
   name: material
   logo: assets/logo.png
   favicon: assets/logo.png
 
-
-  # 🌙 Dark mode first (recommended)
   palette:
+    # Dark mode default (matching docs)
     - scheme: slate
-      primary: blue
-      accent: cyan
+      primary: indigo
+      accent: indigo
       toggle:
-        icon: material/weather-sunny
+        icon: material/brightness-4
         name: Switch to light mode
 
+    # Light mode option
     - scheme: default
-      primary: blue
-      accent: cyan
+      primary: indigo
+      accent: indigo
       toggle:
-        icon: material/weather-night
+        icon: material/brightness-7
         name: Switch to dark mode
 
   features:
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.top
+    - navigation.tracking
+    - navigation.path
+    - navigation.prune
+    - navigation.indexes
     - navigation.sections
-    - content.code.copy
-    - search.highlight
     - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - toc.follow
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js
+  - javascripts/mermaid.js
 
 markdown_extensions:
+  - attr_list
+  - md_in_html
   - admonition
   - pymdownx.details
-  - pymdownx.highlight:
-      use_pygments: true
-      pygments_style: material
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
-
+          format: !!python/name:pymdownx.superfences.fence_div_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
 
 nav:
   - Home: index.md
-  - Architecture: architecture.md
 
-  - Servers:
-      - Lenovo Server: servers/lenovo.md
-      - Android Termux Server: servers/android-termux.md
-      - Termux Optimizations: servers/termux-optimizations.md
+  - Linux:
+      - Installation Guides:
+          - Arch Linux: linux/arch-linux.md
+          - Docker: linux/docker.md
+          - Proxmox: linux/proxmox.md
+      - Setup Guides:
+          - Basic: linux/basic.md
+          - Desktop: linux/desktop.md
+          - Server: linux/server.md
+      - Virtualization:
+          - Proxmox VE: linux/proxmox.md
 
-  - Services:
+  - Media:
       - Immich: services/immich.md
       - Jellyfin: services/jellyfin.md
       - Plex: services/plex.md
-      - Nginx Proxy Manager: services/nginx-proxy-manager.md
-      - Ad Blocker: services/adblocker.md
-      - Sophia Radar: services/sophia-radar.md
 
   - Networking:
       - Networking Basics: networking/basics.md
@@ -67,9 +103,20 @@ nav:
       - Reverse Proxy: networking/reverse-proxy.md
       - Zero Trust: networking/zero-trust.md
 
-  - Arch Linux:
-      - Manual Installation: arch-linux/manual-install.md
-
-  - Maintenance:
+  - Monitoring:
+      - Telemetry Stack: services/monitoring.md
+      - Ad Blocker: services/adblocker.md
+      - Sophia Radar: services/sophia-radar.md
       - Health Checks: maintenance/health-checks.md
+
+  - Fileserver:
+      - Lenovo Server: servers/lenovo.md
+      - Android Termux Server: servers/android-termux.md
+      - Termux Optimizations: servers/termux-optimizations.md
+
+  - Management:
+      - Nginx Proxy Manager: services/nginx-proxy-manager.md
       - Disaster Recovery: maintenance/disaster-recovery.md
+
+  - Extras:
+      - Architecture: architecture.md

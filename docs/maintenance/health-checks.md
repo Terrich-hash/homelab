@@ -1,17 +1,41 @@
-# Health Checks
+<span class="doc-pill">Maintenance</span> <span class="doc-pill">Health Checks</span> <span class="doc-pill">Monitoring</span>
 
-## HTTP Check
+# Routine Health Checks & Monitoring Policy
+
+Standard operating procedures for maintaining homelab stability, verifying backup integrity, and monitoring node health.
+
+---
+
+## Daily Automated Health Checks
+
+```mermaid
+flowchart TD
+    Cron["Daily Cron Scheduler"] --> Ping["Ping Tailscale Mesh Nodes"]
+    Ping --> ContainerCheck["Inspect Docker Container State"]
+    ContainerCheck --> DiskSpace["Check Disk Usage Threshold"]
+    DiskSpace --> BackupCheck["Verify Nightly Backup Snapshot"]
+    BackupCheck --> Alert{"Errors Found?"}
+    Alert -->|Yes| Notify["Send Alert Notification"]
+    Alert -->|No| Log["Record Success Log"]
+```
+
+---
+
+## Health Check Script (`health-check.sh`)
+
 ```bash
-curl -f http://localhost:PORT
-```
+#!/bin/bash
+# Homelab Automated Health Verification
 
-- -f → fails on non-2xx responses
-- Useful for verifying local services and reverse proxies
+echo "Checking Tailscale Connectivity..."
+tailscale status || exit 1
 
-DNS Check
-```
-dig @ANDROID_TS_IP google.com
-```
+echo "Checking Unhealthy Docker Containers..."
+UNHEALTHY=$(docker ps -a --filter health=unhealthy -q)
+if [ -n "$UNHEALTHY" ]; then
+    echo "Warning: Unhealthy containers detected: $UNHEALTHY"
+fi
 
-- Confirms DNS resolution through the Android/Tailscale node
-- Replace **ANDROID_TS_IP** with the actual Tailscale IP
+echo "Checking Disk Space..."
+df -h | grep -E '/dev/sd|/dev/nvme'
+```

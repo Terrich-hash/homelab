@@ -1,103 +1,43 @@
-#  Disaster Recovery
+<span class="doc-pill">Maintenance</span> <span class="doc-pill">Disaster Recovery</span> <span class="doc-pill">Backups</span>
 
-##  Goals
-- Restore system functionality quickly
-- Preserve critical data
-- Minimize downtime
+# Disaster Recovery & Backup Strategy
 
----
-
-##  Common Failure Scenarios
-- System fails to boot
-- Network or DNS outage
-- Service crash or misconfiguration
-- Disk or filesystem corruption
-- Accidental deletion or overwrite
+Disaster recovery protocols for restoring server hosts, Docker container volumes, and network routing in the event of hardware failure.
 
 ---
 
-##  Recovery Procedure
+## Recovery Workflow
 
-### 1. Boot into Recovery Environment
-- Use Arch ISO / Live USB
-- Ensure internet connectivity
+```mermaid
+flowchart TD
+    Disaster["Hardware Failure or OS Crash"] --> Replace["Replace Hardware or Reinstall OS"]
+    Replace --> GitClone["Git Clone Homelab Configs"]
+    GitClone --> JoinMesh["Join Tailscale Mesh Network"]
+    JoinMesh --> MountStorage["Mount Data Backup Drive"]
+    MountStorage --> ComposeUp["Run Docker Compose Up"]
+    ComposeUp --> RestoreDB["Restore Database Dumps"]
+    RestoreDB --> Verified["System Fully Restored"]
+```
+
+---
+
+## 3-2-1 Backup Strategy
+
+- **3 Copies of Data**: Active production data, local backup drive, offsite cloud backup.
+- **2 Different Media**: NVMe SSD + ZFS HDD volume.
+- **1 Offsite Location**: Encrypted Restic backup pushed to Backblaze B2 / Tailscale remote node.
+
+---
+
+## Disaster Recovery Commands
 
 ```bash
-ip a
-ping -c 3 archlinux.org
-```
-## 2. Mount Existing System
-```
-mount /dev/sda2 /mnt          # Root
-mount /dev/sda1 /mnt/boot     # EFI
-```
-Adjust device names as required.
+# 1. Restore Docker Volumes from Restic Repository
+restic -r b2:my-homelab-backups restore latest --target /mnt/storage
 
-## 3. Chroot into Installed System
-```
-arch-chroot /mnt
-```
-## 4. Repair Bootloader (UEFI)
-```
-bootctl install
-```
-OR (GRUB):
-```
-grub-install --target=x86_64-efi --efi-directory=/boot
-grub-mkconfig -o /boot/grub/grub.cfg
-```
-## 5. Network & DNS Recovery
-```
-systemctl restart NetworkManager
-resolvectl status
-```
-DNS test:
-```
-dig google.com
-```
-## 6. Restore from Backup
+# 2. Restore PostgreSQL Database Dump
+cat immich_backup.sql | docker exec -i immich_postgres psql -U postgres -d immich
 
-rsync-based restore
+# 3. Spin up all Services
+docker compose up -d
 ```
-rsync -aAXv /backup/rootfs/ /mnt/
-```
-
-tar archive restore
-```
-tar -xpvf backup.tar.gz -C /mnt
-```
-
-## 7. Verify System Services
-```
-systemctl --failed
-systemctl status sshd
-```
-
-## 8. Reboot System
-```
-exit
-umount -R /mnt
-reboot
-```
-
-
-## Prevention & Best Practices
-Scheduled Backups
-```
-rsync -aAX --delete / /backup/rootfs/
-```
-Snapshot (Btrfs)
-```
-btrfs subvolume snapshot / /@snapshot-pre-upgrade
-```
-Health Monitoring :
-
-- Disk usage: **df -h**
-- Disk health: **smartctl -a /dev/sda**
-- Critical logs: **journalctl -p 3 -xb**
-
-🧠 Reminder
-
-If you haven’t tested recovery, you don’t have a backup — you have hope.
-
----

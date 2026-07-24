@@ -1,104 +1,116 @@
-#  Android Termux Server
+<span class="doc-pill">Android Host</span> <span class="doc-pill">Termux</span> <span class="doc-pill">Fileserver</span>
 
-The Android device running **Termux** functions as a **lightweight edge node** in the homelab.
+# Android Termux Server (Server B) & Backup Fileserver
 
-It is intentionally **stateless**, **low power**, and **disposable**.
-
----
-
-##  Environment
-
-- Android device
-- Termux (installed via F-Droid)
-- Linux userspace (proot)
-
-This environment provides flexibility, not durability.
+An Android smartphone repurposed as an ultra-low-power, battery-backed secondary Linux server running **Termux** for lightweight fileserver tasks, automated background syncing, and core DNS infrastructure.
 
 ---
 
-##  Services
+## Server & Storage Architecture
 
-The following services may run on the Android node:
+```mermaid
+flowchart TD
+    subgraph AndroidOS [Android OS and Storage Subsystem]
+        InternalStorage["Internal Storage"]
+        MicroSD["MicroSD Card Storage"]
+        Battery["Internal Battery UPS Backup"]
+    end
 
-- **AdGuard / Pi-hole** — DNS and ad blocking
-- **Sophia Radar System** — monitoring and lightweight automation
-- **Network utilities** — diagnostics and helpers
+    subgraph TermuxEnv [Termux Linux Userland]
+        SSHFS["SSHFS or SFTP Server Port 8022"]
+        Rsync["Automated Rsync Sync Engine"]
+        Restic["Restic Encrypted Backup Agent"]
+    end
 
-All services are accessed **only via Tailscale**.
+    subgraph DeployedServices [Low Power Services]
+        AdGuard["AdGuard Home DNS Port 53"]
+        Tailscale["Tailscale Subnet Router"]
+        Sophia["Sophia Radar Status Checks"]
+    end
 
----
+    Battery --> TermuxEnv
+    InternalStorage --> TermuxEnv
+    MicroSD --> TermuxEnv
 
-##  Purpose
+    TermuxEnv --> SSHFS
+    TermuxEnv --> Rsync
+    TermuxEnv --> Restic
 
-The Android Termux server exists to provide:
-
-- **Always-on availability**
-- **Very low power consumption**
-- **Network intelligence**
-
-It is a **network brain**, **not a storage node**.
-
----
-
-##  Design Rule: Data Separation
-
-!!! danger "Non-Negotiable Rule"
-    **Important data must live separately from replaceable data.**
-
-    Android devices **must never** be the primary storage location for:
-    - Databases
-    - Secrets or API keys
-    - Backups
-    - User data
-
-    Android + Termux **must be treated as disposable infrastructure**.
+    TermuxEnv --> AdGuard
+    TermuxEnv --> Tailscale
+    TermuxEnv --> Sophia
+```
 
 ---
 
-##  Why This Rule Exists
+## Storage Setup & Permissions
 
-- Android can kill background services at any time
-- App data may be wiped by the OS or user without warning
-- Termux does not provide durability guarantees
-- Mobile storage is not designed for long-term persistence
+To allow Termux to access shared Android internal storage and external MicroSD cards:
 
-This is an **architectural constraint**, not a limitation.
+```bash
+# Request storage permission prompt in Android OS
+termux-setup-storage
 
----
-
-##  Where Critical Data MUST Live
-
-| Data Type | Approved Location |
-|---------|------------------|
-| Databases | Remote server / NAS |
-| Secrets | Secure vault or environment injection |
-| Backups | Off-device storage |
-| Logs (long-term) | Centralized log server |
-
-If data matters, it **does not belong on Android**.
+# Verify created storage symlinks (~/storage)
+ls -la ~/storage
+# dcim -> /sdcard/DCIM
+# downloads -> /sdcard/Download
+# shared -> /sdcard
+# external-1 -> /storage/XXXX-XXXX (MicroSD)
+```
 
 ---
 
-##  What IS Allowed on Android
+## SFTP / SSHFS Fileserver Setup (`:8022`)
 
-The following are explicitly permitted:
+Termux includes OpenSSH, serving as an encrypted SFTP fileserver accessible across the Tailscale mesh:
 
-- DNS cache
-- Temporary files
-- Stateless services
-- Monitoring agents
-- Ephemeral runtime data
+```bash
+# Install OpenSSH
+pkg update && pkg install openssh -y
 
-Everything here must be **safe to lose**.
+# Set SSH password
+passwd
+
+# Start SSH / SFTP server listening on port 8022
+sshd
+
+# Verify listening port
+netstat -tlpn | grep 8022
+```
+
+### Client SSHFS Mounting Command (From Workstation)
+
+```bash
+# Mount Termux storage onto desktop filesystem via SSHFS over Tailscale
+mkdir -p ~/mnt/termux-storage
+sshfs -p 8022 u0_a245@100.64.0.11:/sdcard ~/mnt/termux-storage
+```
 
 ---
 
-##  Failure Model
+## Automated Remote Backup Sync Script (`backup-to-server-a.sh`)
 
-> If this device is lost, wiped, or factory-reset:
+Script running on Server B that periodically syncs critical phone backups and AdGuard configs to Server A (Lenovo Arch Linux):
 
-- No important data is lost
-- No recovery from backups is required
-- Services are restored via **redeploy only**
+```bash
+#!/data/data/com.termux/files/usr/bin/bash
+# Automated Rsync Backup from Server B (Termux) to Server A (Arch Linux)
 
-If recovery requires data restoration, **the design is wrong**.
+LOG_FILE="$HOME/backup.log"
+TARGET_HOST="100.64.0.10"
+TARGET_DIR="/mnt/storage/backups/termux-nodes/"
+
+echo "[$(date)] Starting sync to $TARGET_HOST..." >> "$LOG_FILE"
+
+# Sync AdGuard Home configuration and local backups
+rsync -avz -e "ssh -p 22" \
+    $HOME/.adguard/ \
+    terrich@$TARGET_HOST:$TARGET_DIR/adguard-backup/ >> "$LOG_FILE" 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "[$(date)] Sync completed successfully." >> "$LOG_FILE"
+else
+    echo "[$(date)] Sync failed!" >> "$LOG_FILE"
+fi
+```

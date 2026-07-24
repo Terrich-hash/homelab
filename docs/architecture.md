@@ -1,59 +1,81 @@
-#  Architecture Overview
+<span class="doc-pill">Architecture</span> <span class="doc-pill">Overview</span> <span class="doc-pill">Design</span>
 
-This page provides a **concise overview** of the homelab architecture, focusing on **server roles**, **design principles**, and **core ideas**.
+# System Architecture & Topology
 
-It is intended as a quick reference before diving into detailed architecture and networking documents.
-
----
-
-## 🖥️ Servers
-
-| Server | OS | Purpose |
-|------|----|--------|
-| **Lenovo Laptop** | Arch Linux | Main compute node and persistent storage |
-| **Android Device** | Termux (Linux userspace) | DNS, monitoring, lightweight radar services |
+High-level architecture overview of the dual-server homelab setup utilizing **Arch Linux**, **Proxmox VE**, **Android Termux**, and **Tailscale Zero Trust**.
 
 ---
 
-##  Design Principles
+## Architectural Diagram
 
-The architecture follows these non-negotiable principles:
-
-- **Heavy workloads stay on Lenovo**  
-  Core services, storage, and compute-intensive tasks run only on stable hardware.
-
-- **Android stays lightweight and disposable**  
-  Android devices are treated as replaceable edge nodes with no critical data.
-
-- **No public ports**  
-  No service is exposed directly to the internet.
-
-- **Identity-based access only**  
-  Access is granted based on authenticated identity, not network location.
+![Homelab System Architecture](assets/architecture_diagram.png)
 
 ---
 
-##  Key Ideas
+## Network & Traffic Flow
 
-These ideas guide all design decisions:
+Traffic entering the network is routed via **Tailscale Encrypted Mesh** to **Nginx Proxy Manager**, which terminates SSL certificates and routes connections to internal containers.
 
-- **One job per machine**  
-  Each node has a clearly defined role.
+```mermaid
+flowchart TD
+    subgraph ExternalClient [External Client Device]
+        User["Client Device"]
+    end
 
-- **No public exposure**  
-  All access happens through authenticated private networking.
+    subgraph TailscaleMesh [Tailscale Mesh Network]
+        Tailscale["Tailscale VPN Gateway"]
+    end
 
-- **Identity over IP**  
-  Trust is never derived from LAN, WAN, or physical location.
+    subgraph ServerA [Server A: Lenovo Laptop]
+        NPM["Nginx Proxy Manager"]
+        Immich["Immich Photo Storage"]
+        Jellyfin["Jellyfin Media"]
+        Grafana["Prometheus and Grafana"]
+    end
+
+    subgraph ServerB [Server B: Android Device]
+        AdGuard["AdGuard Home DNS"]
+    end
+
+    User --> Tailscale
+    Tailscale --> NPM
+    NPM --> Immich
+    NPM --> Jellyfin
+    NPM --> Grafana
+    Tailscale --> AdGuard
+```
 
 ---
 
-##  Summary
+## Service Layer Sequence Diagram
 
-This architecture:
-- Keeps critical data centralized and protected
-- Limits attack surface by design
-- Treats edge devices as disposable
-- Makes failure predictable and recoverable
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client App
+    participant NPM as Nginx Proxy Manager
+    participant Auth as Access Control List
+    participant Service as Internal Microservice
+    participant DB as Redis / Postgres DB
 
-All other documentation expands on the rules defined here.
+    User->>NPM: HTTPS Request (e.g. https://immich.lab)
+    NPM->>Auth: Validate Access List / Host Header
+    Auth-->>NPM: Authorized
+    NPM->>Service: Proxy Pass HTTP Request
+    Service->>DB: Read / Write Data
+    DB-->>Service: DB Response
+    Service-->>NPM: Service Response Payload
+    NPM-->>User: Encrypted TLS Response
+```
+
+---
+
+## Component Roles
+
+### 1. Server A (Lenovo Arch Linux / Proxmox VE)
+- **Primary Compute Host**: Runs Docker engine and LXC containers for resource-heavy workloads (Immich AI indexing, Jellyfin transcoding, Prometheus metrics).
+- **SSL Termination**: Nginx Proxy Manager handles Let's Encrypt certificates and internal domain mapping (`*.lab`).
+
+### 2. Server B (Android Termux)
+- **Always-On Low Power Node**: Handles lightweight, high-uptime core services such as **AdGuard Home DNS** and secondary network monitoring.
+- **Failover Node**: Acts as a backup gateway in the Tailscale mesh.
